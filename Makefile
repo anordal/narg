@@ -4,7 +4,7 @@ CFLAGS ?= -Os -Wall
 MANSEC ?= 3
 MANDIR ?= $(PREFIX)/share/man/man$(MANSEC)
 
-CFLAGS += -std=gnu99 -fPIC
+CFLAGS += -std=gnu99
 
 NAM := $(notdir $(CURDIR))
 HED := $(wildcard *.h)
@@ -14,6 +14,8 @@ EXP := lib$(NAM).h
 STA := lib$(NAM).a
 SON := lib$(NAM).so.0
 DYN := $(SON).0.1
+MAN := lib$(NAM).$(MANSEC).gz
+TST := $(wildcard test/test_*.c)
 
 .PHONY: all
 all: $(DYN)
@@ -22,7 +24,7 @@ doc: $(MAN)
 
 .PHONY: clean
 clean:
-	rm -f $(OBJ) $(DYN) $(STA) $(MAN)
+	rm -f $(OBJ) $(DYN) $(STA) $(MAN) $(patsubst %.c, %.o, $(TST)) $(patsubst %.c, %, $(TST))
 .PHONY: install
 install: $(DYN) $(EXP) |$(PREFIX)/lib/ $(PREFIX)/include/
 	install $(DYN) $(PREFIX)/lib/
@@ -34,15 +36,13 @@ uninstall:
 	rm -f $(PREFIX)/include/$(EXP)
 
 $(DYN): $(OBJ)
-	gcc -shared -Wl,-soname,$(SON) $(OBJ) -o $(DYN)
+	gcc -shared -Wl,-soname,$(SON) $^ -o $@
 $(STA): $(OBJ)
-	ar rcs $@ $<
+	ar rcs $@ $^
 %.o: %.c $(HED)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) -fPIC $< -o $@
 %/:
 	mkdir -p $@
-
-MAN := lib$(NAM).$(MANSEC).gz
 
 .PHONY: install-doc
 install-doc: $(MAN) |$(MANDIR)/
@@ -52,8 +52,20 @@ uninstall-doc:
 	rm -f $(MANDIR)/$(MAN)
 
 %.gz: %
-	gzip $<
-%.$(MANSEC): %.markdown
+	gzip -f $<
+%.$(MANSEC): %.md
 	md2man $< > $@
-%.html: %.markdown
+%.html: %.md
 	md2man-html $< > $@
+
+TESTS := $(patsubst test/test_%.c, test/run_%, $(TST))
+
+.PHONY: test $(TESTS)
+test: $(TESTS)
+	@echo TESTS PASSED
+
+$(TESTS): test/run_% : test/test_%
+	$<
+
+test/%: test/%.c $(STA)
+	$(CC) $(CFLAGS) $^ -o $@

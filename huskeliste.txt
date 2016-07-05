@@ -14,9 +14,9 @@ ingen kjepper i hjulene:
 * mbrtowc/wcrtomb finsikke hjå windows
 
 Funker til spesialbehov
-* multiarg => !reorder && indeks i argv returneres
-* dashes=1, dashes=0
-* argc må være med tilfelle man vil begrense
+* multiarg
+* dashes=*
+* kan begrense antall posisjonelle argumenter
 
 Stabilt:
 * test
@@ -26,3 +26,16 @@ Stabilt:
 Rationale:
 Unite implementation, shortopt, longopt, description.
 Reentrancy.
+
+
+TODO:
+* se om det er noe vettugt igjen av det som er kommentert ut og fjern
+* ag BUG
+* colorcat og mvring igjen
+* printopt i18n
+* unify utf8len implementations
+* manpage
+* license headers
+* warninglevel 3
+* checks for custom code policies
+* improve test coverage

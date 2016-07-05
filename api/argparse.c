@@ -4,65 +4,19 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include "../inc/str.c"
+#include "../inc/reverse_slices.c"
+#include "../inc/assign_params.c"
+
 const struct _narg_special_values_for_metavar narg_metavar = {0};
 
-static unsigned leadingdashes(const char *s)
-{
-	unsigned count = 0;
-	while (s[count] == '-') count++;
-	return count;
-}
-
-static unsigned len_longopt(const char *arg)
-{
-	unsigned i;
-	for (i=0; arg[i] && arg[i] != '='; ++i);
-	return i;
-}
-
-static _Bool argmatch(const char *arg, const char *candidate, unsigned expectedlen)
-{
-	if (!candidate) return 0;
-
-	unsigned c; // longest common prefix
-	for (c=0; arg[c] && arg[c] == candidate[c]; ++c);
-	return (candidate[c] == '\0' && c == expectedlen);
-}
-
-static void reverse_slices(char **base, unsigned pivot, unsigned len)
-{
-	unsigned select = 0;
-	unsigned swaps = len;
-	char *move = base[select];
-	while (swaps--) {
-		if (select < pivot) {
-			select += len - pivot;
-		} else {
-			select -= pivot;
-		}
-		char *tmp = base[select];
-		base[select] = move;
-		move = tmp;
-	}
-}
-
-unsigned narg_wordcount(const char *s)
-{
-	if (!s) return 0;
-
-	unsigned count = 0;
-	char prev = ' ';
-	for (; *s; ++s){
-		if (*s != ' ' && prev == ' ') count++;
-		prev = *s;
-	}
-	return count;
-}
+// const_cast
+static const char **const_charpp(char **arg) { return (const char**)arg; }
 
 struct narg_result
 narg_argparse(
-	const char ***ansv,
 	char **argv,
+	struct narg_paramret *retv,
 	const struct narg_optspec *optv,
 	unsigned optc,
 	unsigned dashes_longopt,
@@ -84,11 +38,12 @@ positional_argument:
 			if (!positional_begin) {
 				positional_begin = a;
 			}
+			//BUG: Moving opts after referencing params. Solution: Treat opts, not posargs.
 			else if (positional_end < a) {
 				reverse_slices(
-					argv + positional_begin,
+					const_charpp(argv + positional_begin),
 					positional_end - positional_begin,
-					a - positional_end
+					a - positional_begin
 				);
 				positional_begin += a - positional_end;
 			}
@@ -100,7 +55,7 @@ positional_argument:
 			break;
 		}
 
-		const unsigned dashcount = leadingdashes(arg);
+		const unsigned dashcount = leadingchars(arg, '-');
 		if (dashcount < dashes_shortopt) {
 			goto positional_argument;
 		}
@@ -111,16 +66,16 @@ positional_argument:
 			: 0 // strlen("")
 		;
 		const unsigned expectedlen = (len_paramsep)
-			? len_longopt(arg)
+			? strlen_delim(arg, '=')
 			: utf8len(arg)
 		;
 		unsigned o;
 		for (o=0; o != optc; o++) {
 			if (dashcount >= dashes_longopt) {
-				if (argmatch(arg, optv[o].longopt, expectedlen)) break;
+				if (has_prefix_of_len(arg, optv[o].longopt, expectedlen)) break;
 			}
 			if (dashcount == dashes_shortopt) {
-				if (argmatch(arg, optv[o].shortopt, expectedlen)) break;
+				if (has_prefix_of_len(arg, optv[o].shortopt, expectedlen)) break;
 			}
 		}
 		if (o == optc) {
@@ -150,9 +105,9 @@ positional_argument:
 			return ret;
 		}
 		paramvec[0] += pos_firstparam;
-		ansv[o] = (const char**)paramvec;
+		assign_params(const_charpp(argv), retv, optc, o, 1-num_firstparam, paramcount, const_charpp(paramvec));
 
-		a += params - num_firstparam;
+		a += paramcount - num_firstparam;
 
 		if (optv[o].metavar == &narg_metavar.ignore_rest){
 			arg = argv[++a];

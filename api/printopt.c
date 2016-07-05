@@ -1,3 +1,4 @@
+#define _DEFAULT_SOURCE //fileno, fwrite_unlocked
 
 #include "narg.h"
 

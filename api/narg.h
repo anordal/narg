@@ -3,24 +3,29 @@
 #include <stdint.h>
 #include <stdio.h>
 #ifndef __cplusplus
-#	include <stdbool.h>
+# include <stdbool.h>
 #endif
 
 /*
- * Narg takes exactly N arguments.
+ * Narg takes multiples of exactly N arguments.
  */
 
 struct narg_optspec {
-	const char* shortopt; // UTF-8
-	const char* longopt;  // UTF-8
-	const char* metavar;  // UTF-8
-	const char* help;     // UTF-8
+	const char *shortopt; // UTF-8
+	const char *longopt;  // UTF-8
+	const char *metavar;  // UTF-8
+	const char *help;     // UTF-8
 };
 
 struct _narg_special_values_for_metavar {
 	char ignore_rest; // '\0'
 };
 extern const struct _narg_special_values_for_metavar narg_metavar;
+
+struct narg_paramret {
+	unsigned paramc; // param count
+	const char **paramv; // can be initialized to NULL, or an array of string literals (const char*) to signify a default value. When parameters are found, this will point into argv, replacing any default value, and argv is reordered to make multiple params contiguous.
+};
 
 struct narg_result {
 	enum {
@@ -32,9 +37,9 @@ struct narg_result {
 };
 
 #ifdef __cplusplus
-#define DEFAULTVALUE(x) =x
+# define DEFAULTVALUE(x) =x
 #else
-#define DEFAULTVALUE(x)
+# define DEFAULTVALUE(x)
 #endif
 
 #ifdef __cplusplus
@@ -43,8 +48,8 @@ extern "C" {
 
 struct narg_result
 narg_argparse(
-	const char ***ansv,
 	char **argv,
+	struct narg_paramret *retv,
 	const struct narg_optspec *optv,
 	unsigned optc,
 	unsigned dashes_longopt DEFAULTVALUE(2),
@@ -79,4 +84,4 @@ narg_printopt_unlocked(
 } //extern C
 #endif
 
-#endif
+#endif //NARG_H

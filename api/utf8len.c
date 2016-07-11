@@ -5,12 +5,12 @@
 int_fast8_t utf8len(const char *first){
 	uint8_t leadbits=0;
 	while(*first & ((uint8_t)'\x80' >> leadbits)) leadbits++;
-	if(leadbits == 1){
-		//not utf8
-		return -1;
-	}
-	if(leadbits == 0){
-		//ascii
+	if(leadbits <= 1){
+		if(leadbits == 1){
+			//lost in mbseq
+			return -1;
+		}
+		//leadbits == 0: ascii
 		if(*first == '\0') return 0;
 		leadbits = 1;
 	}
@@ -30,7 +30,7 @@ int_fast8_t utf8len(const char *first){
 	leadbits=0;
 	while(*s & ((uint8_t)'\x80' >> leadbits)) leadbits++;
 	if(leadbits == 0){
-		//ascii: Clearly not
+		//ascii
 		return firstlen;
 	}
 	

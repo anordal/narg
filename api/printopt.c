@@ -1,5 +1,4 @@
-#define _DEFAULT_SOURCE //fileno, fwrite_unlocked
-
+#define _DEFAULT_SOURCE //unlocked stdio, fileno
 #include "narg.h"
 
 #ifdef __linux__
@@ -37,7 +36,7 @@ static pair_t findbreakpoint(const char *line, unsigned width){
 		}while((line[pos.x1] & 0xC0) == 0x80);
 		else pos.x1++;
 	}
-	return (breakpoint.x2 != ~0) ? breakpoint : pos;
+	return (breakpoint.x2 != ~0u) ? breakpoint : pos;
 }
 
 void narg_indentputs_unlocked(

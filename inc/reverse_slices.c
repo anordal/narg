@@ -23,17 +23,12 @@ static void reverse_slices(const char **base, unsigned pivot, unsigned len)
 }
 
 #ifdef TEST
-#include <stdio.h>
+#include "../testapi/testability.h"
 
 static void test_reverse_slices(int *status, const char **base, unsigned pivot, unsigned len, const char **expect)
 {
 	reverse_slices(base, pivot, len);
-	for (unsigned i=0; i!=len; ++i) {
-		if (base[i] != expect[i]) {
-			fprintf(stderr, "%s != %s\n", base[i], expect[i]);
-			*status = 1;
-		}
-	}
+	compare_slices(status, base, expect, len);
 }
 
 int main() {

@@ -30,7 +30,7 @@ static _Bool has_prefix_of_len(const char *has, const char *candidate, unsigned 
 
 #ifdef TEST
 #include <stdbool.h>
-#include "macros_test.h"
+#include "../testapi/testability.h"
 
 int main()
 {

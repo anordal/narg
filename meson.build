@@ -16,12 +16,16 @@ unittests = [
 	'inc/assign_params.c',
 	'api/utf8len.c',
 	'api/wordcount.c',
+	'api/argparse.c',
+	'testapi/testability.c',
 ]
+
+testapi = static_library('testability', sources : ['testapi/testability.c'])
 
 foreach u : unittests
 	dir = u.split('/').get(0)
 	name = 'test_' + u.split('/').get(1).split('.').get(0)
-	libs = []
+	libs = [ testapi ]
 	if dir == 'api'
 		libs += [narg]
 	endif

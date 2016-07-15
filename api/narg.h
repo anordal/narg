@@ -31,7 +31,8 @@ struct narg_result {
 	enum {
 		NARG_ENOSUCHOPTION = 1,
 		NARG_EMISSINGPARAM,
-		NARG_EUNEXPECTEDPARAM
+		NARG_EUNEXPECTEDPARAM,
+		NARG_EILSEQ
 	} err;
 	unsigned arg;
 };

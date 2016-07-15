@@ -28,14 +28,14 @@ Unite implementation, shortopt, longopt, description.
 Reentrancy.
 
 
-TODO:
-* se om det er noe vettugt igjen av det som er kommentert ut og fjern
-* ag BUG
-* colorcat og mvring igjen
-* printopt i18n
-* unify utf8len implementations
-* manpage
-* license headers
-* warninglevel 3
-* checks for custom code policies
-* improve test coverage
+veien videre:
+ag BUG
+(colorcat og mvring) eller junittest argparse.c
+se om det er noe vettugt igjen av det som er kommentert ut og fjern
+printopt i18n
+license headers
+unify utf8len implementations
+improve test coverage
+manpage
+checks for custom code policies
+coding style

@@ -15,7 +15,7 @@ unsigned narg_wordcount(const char *s)
 }
 
 #else //TEST
-#include "../inc/macros_test.h"
+#include "../testapi/testability.h"
 
 int main(){
 	int status = 0;

@@ -1,17 +1,14 @@
-
 #include "narg.h"
+
+#ifndef TEST
 #include "utf8len.h"
 #include <stddef.h>
-#include <assert.h>
 
 #include "../inc/str.c"
 #include "../inc/reverse_slices.c"
 #include "../inc/assign_params.c"
 
 const struct _narg_special_values_for_metavar narg_metavar = {0};
-
-// const_cast
-static const char **const_charpp(char **arg) { return (const char**)arg; }
 
 struct narg_result
 narg_argparse(
@@ -22,32 +19,25 @@ narg_argparse(
 	unsigned dashes_longopt,
 	unsigned max_positional_args)
 {
+	// Be able to guarrantee that the character data are not modified
+	// even though the api does not; that would require a client side cast.
+	const char **args = (const char**)argv;
+	argv = NULL;
+
 	const unsigned dashes_shortopt = (dashes_longopt > 1)
 		? dashes_longopt - 1
 		: dashes_longopt
 	;
 
-	unsigned positional_begin=0, positional_end=~0;
+	struct narg_paramret posargs = {0}; // positional (non-optional) arguments
 	for (unsigned a=1; ; ++a) {
-		const char *arg = argv[a];
+		const char *arg = args[a];
 
 		if (arg == NULL) {
 ignore_rest:
 			max_positional_args = 0;
 positional_argument:
-			if (!positional_begin) {
-				positional_begin = a;
-			}
-			//BUG: Moving opts after referencing params. Solution: Treat opts, not posargs.
-			else if (positional_end < a) {
-				reverse_slices(
-					const_charpp(argv + positional_begin),
-					positional_end - positional_begin,
-					a - positional_begin
-				);
-				positional_begin += a - positional_end;
-			}
-			positional_end = a + 1;
+			assign_params(&posargs, args+a, 1, 0, &posargs, retv, optc, args);
 			if (max_positional_args) {
 				--max_positional_args;
 				continue;
@@ -61,183 +51,246 @@ positional_argument:
 		}
 		arg += dashcount;
 
-		const unsigned len_paramsep = (dashcount >= dashes_longopt)
-			? 1 // strlen("=")
-			: 0 // strlen("")
-		;
-		const unsigned expectedlen = (len_paramsep)
-			? strlen_delim(arg, '=')
-			: utf8len(arg)
-		;
-		unsigned o;
-		for (o=0; o != optc; o++) {
+		//shortopt loop
+		for (;;) {
+			unsigned len_paramsep;
+			unsigned expectedlen;
 			if (dashcount >= dashes_longopt) {
-				if (has_prefix_of_len(arg, optv[o].longopt, expectedlen)) break;
+				len_paramsep = 1; // strlen("=")
+				expectedlen = strlen_delim(arg, '=');
+			} else {
+				len_paramsep = 0; // strlen("")
+				int_fast8_t test = utf8len(arg);
+				if (test == -1) {
+					struct narg_result ret = { .err=NARG_EILSEQ, .arg=a };
+					return ret;
+				}
+				expectedlen = test;
 			}
-			if (dashcount == dashes_shortopt) {
-				if (has_prefix_of_len(arg, optv[o].shortopt, expectedlen)) break;
+			unsigned o;
+			for (o=0; o != optc; o++) {
+				if (dashcount >= dashes_longopt) {
+					if (has_prefix_of_len(arg, optv[o].longopt, expectedlen)) {
+						break;
+					}
+				}
+				if (dashcount == dashes_shortopt) {
+					if (has_prefix_of_len(arg, optv[o].shortopt, expectedlen)) {
+						break;
+					}
+				}
 			}
-		}
-		if (o == optc) {
-			struct narg_result ret = { .err=NARG_ENOSUCHOPTION, .arg=a };
-			return ret;
-		}
+			if (o == optc) {
+				struct narg_result ret = { .err=NARG_ENOSUCHOPTION, .arg=a };
+				return ret;
+			}
+			arg += expectedlen;
 
-		const unsigned params = narg_wordcount(optv[o].metavar);
-		const unsigned num_firstparam = (arg[expectedlen])
-			? 1 // the first parameter is in the option argument
-			: 0 // zero parameters in the option argument
-		;
-		const unsigned pos_firstparam = (arg[expectedlen])
-			? dashcount + expectedlen + len_paramsep
-			: 0 // noop
-		;
-		unsigned paramcount = num_firstparam;
-		char **paramvec = argv + a + 1 - num_firstparam;
-		while (paramcount < params && paramvec[paramcount]) {
-			++paramcount;
-		}
-		if (paramcount != params) {
-			struct narg_result ret = {
-				.err = (paramcount < params) ? NARG_EMISSINGPARAM : NARG_EUNEXPECTEDPARAM,
-				.arg = a
-			};
-			return ret;
-		}
-		paramvec[0] += pos_firstparam;
-		assign_params(const_charpp(argv), retv, optc, o, 1-num_firstparam, paramcount, const_charpp(paramvec));
-
-		a += paramcount - num_firstparam;
-
-		if (optv[o].metavar == &narg_metavar.ignore_rest){
-			arg = argv[++a];
-			goto ignore_rest;
+			const unsigned expectedparams = narg_wordcount(optv[o].metavar);
+			if (expectedparams == 0) {
+				retv[o].paramv = args + a;
+				retv[o].paramc = 1;
+				if (arg[0]) {
+					if (len_paramsep) {
+						struct narg_result ret = { .err = NARG_EUNEXPECTEDPARAM, .arg = a };
+						return ret;
+					}
+					continue; //shortopt loop
+				}
+				if (optv[o].metavar == &narg_metavar.ignore_rest){
+					arg = args[++a];
+					goto ignore_rest;
+				}
+			} else {
+				const unsigned num_firstparam = (arg[0])
+					? 1 // the first parameter is in the option argument
+					: 0 // zero parameters in the option argument
+				;
+				const char **paramvec = args + a + 1 - num_firstparam;
+				unsigned paramcount = num_firstparam;
+				while (paramcount != expectedparams && paramvec[paramcount]) {
+					++paramcount;
+				}
+				if (paramcount != expectedparams) {
+					struct narg_result ret = { .err = NARG_EMISSINGPARAM, .arg = a };
+					return ret;
+				}
+				if (num_firstparam) {
+					paramvec[0] = arg + len_paramsep;
+				}
+				assign_params(retv+o, paramvec, expectedparams, 1-num_firstparam, &posargs, retv, optc, args);
+				a += expectedparams - num_firstparam;
+			}
+			break;
 		}
 	}
 
-	struct narg_result ret = { .err=0, .arg=positional_begin };
+	struct narg_result ret = { .err=0, .arg=posargs.paramv-args };
 	return ret;
 }
 
-// static unsigned lookup(
-// 	const struct optspec *haystack,
-// 	char *needle,
-// 	unsigned hayght,
-// 	unsigned needlen,
-// 	unsigned optsel
-// ){
-// 	unsigned optnum;
-// 	for(optnum=0; optnum != hayght; optnum++){
-// 		const char *cand = *(char**)((char*)(haystack+optnum) + optsel); //candidate
-// 		if(!cand) continue;
-//
-// 		unsigned c=0;
-// 		while(c < needlen && cand[c] == needle[c]) c++;
-// 		if(c == needlen && cand[c] == '\0') break;
-// 	}
-// 	return optnum;
-// }
+#else //TEST
+#undef TEST
+#include "../testapi/testability.h"
+#include "utf8len.h"
+#include <string.h>
 
-// static unsigned leadingdashes(const char *s){
-// 	unsigned count = 0;
-// 	while(s[count] == '-' && s[count+1] != '\0') count++;
-// 	return count;
-// }
+static void ignore_rest(int *status) {
+	const struct narg_optspec optv[] = {
+		{"h","help",NULL,"Show help text"},
+		{"o","output","OUTFILE","Set output file"},
+		{NULL,"",&narg_metavar.ignore_rest,"Treat subsequent arguments as positional"}
+	};
+	struct narg_paramret retv[ARRAY_SIZE(optv)] = {0};
+	const char *argv[] = {
+		NULL,
+		"-o",
+		"--help",
+		"pos1",
+		"--",
+		"--help",
+		NULL
+	};
+	struct narg_result res = narg_argparse((char**)argv, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, 0);
+	expect_i(status, res.arg, 4);
+	expect_paramret(status, retv+0, 0, (const char *[]){0});
+	expect_paramret(status, retv+1, 1, (const char *[]){"--help"});
+	expect_paramret(status, retv+2, 1, (const char *[]){"--"});
+	compare_slices(status, argv+res.arg, (const char*[]){"pos1","--help"}, 2);
+}
 
-/* How to sort options in front of non-options:
- * While parsing options, move non-options since last option forward.
- *
- * return the index of the first positional argument.
- */
+static void max_positional(int *status){
+	const struct narg_optspec optv[] = {
+		{"a",NULL,"PARAM",""},
+		{"b",NULL,NULL,""},
+		{"c",NULL,NULL,""}
+	};
+	struct narg_paramret retv[ARRAY_SIZE(optv)] = {0};
+	const char *argv[] = {
+		NULL,
+		"-a",
+		"p",
+		"A",
+		"-b",
+		"-ap2",
+		"B", // stop here
+		"-c", //canary
+		NULL
+	};
+	struct narg_result res = narg_argparse((char**)argv, retv, optv, ARRAY_SIZE(optv), 2, 1);
+	expect_i(status, res.err, 0);
+	expect_i(status, res.arg, 5);
+	expect_paramret(status, retv+0, 2, (const char *[]){"p","p2"});
+	expect_paramret(status, retv+1, 1, (const char *[]){"-b"});
+	expect_paramret(status, retv+2, 0, (const char *[]){0});
+	compare_slices(status, argv+res.arg, (const char*[]){"A","B","-c"}, 3);
+}
 
-// struct narg_result
-// narg(
-// 	const struct optspec *optv,
-// 	const char *const *argv,
-// 	unsigned dashes,
-// 	unsigned max_positional_args)
-// {
-// 	unsigned n=0, firstnonopt=~0, lastnonopt=~0;
-// 	for(;;){
-// 		n++;
-// 		if(argv[n] == NULL) goto nonopt;
-//
-// 		unsigned dashcount = leadingdashes(argv[n]);
-// 		unsigned optnum, optlen;
-// 		char *findme = argv[n] + dashcount;
-// 		if(dashes != 0){
-// 			if(dashcount == 0){
-// nonopt:
-// 				if(lastnonopt+1 != n){
-// 					// TODO: Is it a problem to discard opt? Yes if returning pointers into argv.
-// 					// adjmemswap instead
-// 					unsigned r=lastnonopt+1, w=n;
-// 					while(r > firstnonopt){
-// 						argv[--w] = argv[--r];
-// 					}
-// 					firstnonopt = w;
-// 				}
-// 				if(n == argc) break;
-// 				lastnonopt = n;
-// 				continue;
-// 			}
-// 			_Bool longopt = dashcount >= dashes;
-// 			if(longopt){
-// 				optlen = optionlen(findme);
-// 				optnum = lookup_united(optv, findme, optc, optlen, offsetof(struct optspec, longopt));
-// 			}else{
-// 				shortopt:
-// 				optlen = utf8len(findme);
-// 				optnum = lookup_united(optv, findme, optc, optlen, offsetof(struct optspec, shortopt));
-// 			}
-// 		}else{
-// 			if(findme[0] == '-') findme = argv[n];
-// 			optlen = optionlen(findme);
-// 			optnum = lookup_united(optv, findme, optc, optlen, offsetof(struct optspec, shortopt));
-// 			if(optnum == optc){
-// 				optnum = lookup_united(optv, findme, optc, optlen, offsetof(struct optspec, longopt));
-// 			}
-// 		}
-//
-// 		if(optnum == optc){
-// 			findme[optlen] = '\0';
-// 			argv[n] = findme;
-// 			struct result_united ret = {.err=ENOSUCHOPTION, .arg=n};
-// 			return ret;
-// 		}
-//
-// 		// Forenklingar mot forviklingar
-// 		// Den derre erlik-syntaksen, skal kanskje forbeholdes nparams=1,
-// 		//  samt bare gå an å kombinere med nparams=0.
-// 		// nparams=many kan ikke kombineres med nparams!=0
-// 		if(optv[optnum].nparams == -1) argc = n+1; //this is an opt, the next is end
-// 		if(optv[optnum].nparams == -2) goto nonopt;
-// 		if(optv[optnum].nparams == 0){
-// 			if(findme[optlen] == '='){
-// 				argv[n] = findme;
-// 				struct result_united ret = {.err=EUNEXPECTEDPARAM, .arg=n};
-// 				return ret;
-// 			}
-// 			ans[optnum] = findme;
-// 		}
-// 		if(optv[optnum].nparams == 1){
-// 			if(findme[optlen] == '='){
-// 				ans[optnum] = findme + optlen;
-// 				break;
-// 			}else if(argv[n+1]){
-// 				ans[optnum] = argv[++n];
-// 			}else{
-// 				findme[optlen] = '\0';
-// 				argv[n] = findme;
-// 				struct result_united ret = {.err=EMISSINGPARAM, .arg=n};
-// 				return ret;
-// 			}
-// 		}
-// 		//TODO: nparams>1, nparams=varying
-//
-// 		findme += optlen;
-// 		if(*findme && *findme != '=') goto shortopt;
-// 	}
-// 	struct result_united ret = {.err=0, .arg=firstnonopt};
-// 	return ret;
-// }
+static void flagorgy(int *status){
+	const struct narg_optspec optv[] = {
+		{"æ","flag",NULL,""},
+		{"ø̧̇","scalar"," VAL",""},
+		{"å","pair"," VAL1 VAL2",""}
+	};
+	struct narg_paramret retv[ARRAY_SIZE(optv)] = {0};
+	const char *argv[] = {
+		NULL,
+		"-æø̧̇å",
+		NULL
+	};
+	struct narg_result res = narg_argparse((char**)argv, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, 0);
+	expect_i(status, res.arg, 2);
+	expect_paramret(status, retv+0, 1, (const char *[]){"å"});
+	expect_paramret(status, retv+1, 1, (const char *[]){"å"});
+	expect_paramret(status, retv+2, 0, (const char *[]){0});
+}
+
+static void dashes0(int *status){
+	const struct narg_optspec optv[] = {
+		{NULL,"help",NULL,""},
+		{"se","search",NULL,""},
+		{"in","install",NULL,""},
+		{"if",NULL,"=IN",""},
+		{NULL,"of","=OUT",""}
+	};
+	struct narg_paramret retv[ARRAY_SIZE(optv)] = {0};
+	const char *argv[] = {
+		NULL,
+		"if=/dev/zero",
+		"of=/dev/null",
+		"---help", //ignore any amount of leading dashes
+		"se",
+		"install",
+		"if", "Odd",
+		"of", "Even",
+		NULL
+	};
+	struct narg_result res = narg_argparse((char**)argv, retv, optv, ARRAY_SIZE(optv), 0, ~0);
+	expect_i(status, res.err, 0);
+	expect_i(status, res.arg, 10);
+	expect_paramret(status, retv+0, 1, (const char *[]){"---help"});
+	expect_paramret(status, retv+1, 1, (const char *[]){"se"});
+	expect_paramret(status, retv+2, 1, (const char *[]){"install"});
+	expect_paramret(status, retv+3, 2, (const char *[]){"/dev/zero", "Odd"});
+	expect_paramret(status, retv+4, 2, (const char *[]){"/dev/null", "Even"});
+}
+
+static void fail(int *status) {
+	const struct narg_optspec optv[] = {
+		{"h","help",NULL,"Show help text"},
+		{"o","output","OUTFILE","Set output file"},
+		{NULL,"",&narg_metavar.ignore_rest,"Treat subsequent arguments as positional"}
+	};
+	struct narg_paramret retv[ARRAY_SIZE(optv)] = {0};
+	struct narg_result res;
+
+	const char *argv_enosuch[] = {
+		NULL,
+		"-h4",
+		NULL
+	};
+	res = narg_argparse((char**)argv_enosuch, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, NARG_ENOSUCHOPTION);
+	expect_i(status, res.arg, 1);
+
+	const char *argv_emissing[] = {
+		NULL,
+		"-o",
+		NULL
+	};
+	res = narg_argparse((char**)argv_emissing, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, NARG_EMISSINGPARAM);
+	expect_i(status, res.arg, 1);
+
+	const char *argv_eunexpect[] = {
+		NULL,
+		"--help=4",
+		NULL
+	};
+	res = narg_argparse((char**)argv_eunexpect, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, NARG_EUNEXPECTEDPARAM);
+	expect_i(status, res.arg, 1);
+
+	const char *argv_eilseq[] = {
+		NULL,
+		"-\xE5",
+		NULL
+	};
+	res = narg_argparse((char**)argv_eilseq, retv, optv, ARRAY_SIZE(optv), 2, ~0);
+	expect_i(status, res.err, NARG_EILSEQ);
+	expect_i(status, res.arg, 1);
+}
+
+int main(){
+	int status = 0;
+	ignore_rest(&status);
+	max_positional(&status);
+	flagorgy(&status);
+	dashes0(&status);
+	fail(&status);
+	return status;
+}
+
+#endif //TEST

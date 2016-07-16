@@ -1,5 +1,3 @@
-#include "narg.h"
-#ifndef TEST
 
 unsigned narg_wordcount(const char *s)
 {
@@ -14,7 +12,9 @@ unsigned narg_wordcount(const char *s)
 	return count;
 }
 
-#else //TEST
+#ifdef TEST
+#undef TEST
+#include <stddef.h> //NULL
 #include "../testapi/testability.h"
 
 int main(){

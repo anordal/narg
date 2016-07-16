@@ -4,19 +4,16 @@ narg_sources = [
 	'api/argparse.c',
 	'api/printopt.c',
 	'api/utf8len.c',
-	'api/wordcount.c',
 ]
 
 version = '0.3.0'
 narg = library('narg', sources : narg_sources, install : true, version : version)
 
-unittests = [
-	'inc/str.c',
-	'inc/reverse_slices.c',
+unittests = narg_sources + [
 	'inc/assign_params.c',
-	'api/utf8len.c',
-	'api/wordcount.c',
-	'api/argparse.c',
+	'inc/reverse_slices.c',
+	'inc/str.c',
+	'inc/wordcount.c',
 	'testapi/testability.c',
 ]
 

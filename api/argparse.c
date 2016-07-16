@@ -1,10 +1,10 @@
 #include "narg.h"
 
 #ifndef TEST
-#include "utf8len.h"
 #include <stddef.h>
 
 #include "../inc/str.c"
+#include "../inc/wordcount.c"
 #include "../inc/reverse_slices.c"
 #include "../inc/assign_params.c"
 
@@ -60,7 +60,7 @@ positional_argument:
 				expectedlen = strlen_delim(arg, '=');
 			} else {
 				len_paramsep = 0; // strlen("")
-				int_fast8_t test = utf8len(arg);
+				int_fast8_t test = narg_utf8len(arg);
 				if (test == -1) {
 					struct narg_result ret = { .err=NARG_EILSEQ, .arg=a };
 					return ret;
@@ -132,7 +132,6 @@ positional_argument:
 #else //TEST
 #undef TEST
 #include "../testapi/testability.h"
-#include "utf8len.h"
 #include <string.h>
 
 static void ignore_rest(int *status) {

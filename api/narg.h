@@ -66,18 +66,18 @@ narg_indentputs_unlocked(
 	unsigned indent, unsigned width, const char *str
 );
 
-unsigned
-narg_wordcount(const char *);
-
 void
 narg_printopt_unlocked(
 	FILE *fp,
-	const char ***ansv,
 	const struct narg_optspec *optv,
+	const struct narg_paramret *retv,
 	unsigned optc,
 	unsigned dashes_longopt,
 	unsigned width
 );
+
+int_fast8_t
+narg_utf8len(const char *first);
 
 #undef DEFAULTVALUE
 

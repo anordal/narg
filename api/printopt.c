@@ -1,3 +1,4 @@
+#ifndef TEST
 #define _DEFAULT_SOURCE //unlocked stdio, fileno
 #include "narg.h"
 
@@ -23,18 +24,16 @@ typedef struct{
 
 static pair_t findbreakpoint(const char *line, unsigned width){
 	pair_t pos={0, 0}, breakpoint={~0, ~0};
-	for(;;){
-		if(line[pos.x1] == '\0' || isspace(line[pos.x1])){
+	for (;;) {
+		const int charlen = narg_utf8len(line + pos.x1);
+		if (charlen <= 0 || line[pos.x1] == '\n') {
+			return pos;
+		} else if (line[pos.x1] == ' ') {
 			breakpoint = pos;
-			if(line[pos.x1] == '\0' || line[pos.x1] == '\n') break;
 		}
-		if(pos.x2 >= width) break;
-		pos.x2++;
-		//swallow multibyte characters whole
-		if((line[pos.x1] & 0xC0) == 0xC0) do{
-			pos.x1++; //utf8 multibyte
-		}while((line[pos.x1] & 0xC0) == 0x80);
-		else pos.x1++;
+		if (pos.x2 == width) break;
+		pos.x1 += charlen;
+		pos.x2 += 1;
 	}
 	return (breakpoint.x2 != ~0u) ? breakpoint : pos;
 }
@@ -51,8 +50,8 @@ void narg_indentputs_unlocked(
 		str += breakpoint.x1;
 		pos += breakpoint.x2;
 		if(*str == '\0') break;
-		if(isspace(*str)) str++;
 		putchar_unlocked('\n');
+		str++;
 		pos = 0;
 	}
 	*posPtr = pos;
@@ -60,8 +59,10 @@ void narg_indentputs_unlocked(
 
 static pair_t utf8strlen(const char *str){
 	pair_t ret = {0, 0};
-	for(; str[ret.x1]; ret.x1++){
-		if((str[ret.x1] & 0xC0) != 0x80) ret.x2++;
+	int charlen;
+	while ((charlen=narg_utf8len(str + ret.x1)) > 0) {
+		ret.x1 += charlen;
+		ret.x2 += 1;
 	}
 	return ret;
 }
@@ -73,12 +74,19 @@ static pair_t nullutf8strlen(const char *s){
 }
 
 static pair_t utf8strcpy(char *restrict dst, const char *restrict src){
-	pair_t i = {0, 0};
-	for(; src[i.x1]; i.x1++){
-		dst[i.x1] = src[i.x1];
-		if((src[i.x1] & 0xC0) != 0x80) i.x2++;
+	pair_t ret = {0, 0};
+	for (unsigned i=0; ; i++) {
+		if (ret.x1 == i) {
+			int charlen = narg_utf8len(src + i);
+			if (charlen <= 0) {
+				break;
+			}
+			ret.x1 += charlen;
+			ret.x2 += 1;
+		}
+		dst[i] = src[i];
 	}
-	return i;
+	return ret;
 }
 
 static pair_t pairmax(pair_t a, pair_t b){
@@ -101,8 +109,8 @@ static pair_t pairaddpair(pair_t a, pair_t b){
 
 void narg_printopt_unlocked(
 	FILE *fp,
-	const char ***ansv,
 	const struct narg_optspec *optv,
+	const struct narg_paramret *retv,
 	unsigned optc,
 	unsigned dashes_longopt,
 	unsigned width
@@ -156,24 +164,95 @@ void narg_printopt_unlocked(
 		wpos.x2 %= width;
 		
 		if(optv[o].help) narg_indentputs_unlocked(fp, &wpos.x2, indent, width, optv[o].help);
-		if(ansv[o]){
-			unsigned num_args = narg_wordcount(optv[o].metavar);
-			if(num_args){
-				char buf[100];
-				char *const end = buf + sizeof(buf);
-				char *pos = stpcpy(buf, " [");
-				for(unsigned a=0; ;){
-					pos = stpncpy(pos, ansv[o][a++], end-pos);
-					if(a == num_args || end-pos < 2) break;
-					*pos++ = ' ';
-				}
-				if(end-pos < 2){
-					pos = stpcpy(end-2-strlen("…"), "…");
-				}
-				stpcpy(pos, "]");
-				narg_indentputs_unlocked(fp, &wpos.x2, indent, width, buf);
+		if(retv[o].paramc){
+			char buf[100];
+			char *const end = buf + sizeof(buf);
+			char *pos = stpcpy(buf, " [");
+			for(unsigned a=0; ;){
+				pos = stpncpy(pos, retv[o].paramv[a++], end-pos);
+				if(a == retv[o].paramc || end-pos < 2) break;
+				*pos++ = ' ';
 			}
+			if(end-pos < 2){
+				pos = stpcpy(end-2-strlen("…"), "…");
+			}
+			stpcpy(pos, "]");
+			narg_indentputs_unlocked(fp, &wpos.x2, indent, width, buf);
 		}
 		putchar_unlocked('\n');
 	}
 }
+
+#else //TEST
+#undef TEST
+#define _POSIX_C_SOURCE 200112L //popen
+#include "narg.h"
+#include "../testapi/testability.h"
+#include <stdlib.h> //getenv, setenv
+
+static void expect_fp(int *status, FILE *fp, const char *expected){
+	const char *s = expected;
+	char fc, sc;
+	do {
+		int c = fgetc(fp);
+		fc = (c != EOF) ? c : '\0';
+		sc = *s++;
+	} while (fc == sc && fc != '\0');
+	if (fc != '\0') {
+		fwrite(expected, 1, s-expected-1, stderr);
+		fprintf(stderr, "\nExpected byte: %02x\nActual   byte: %02x\n", sc, fc);
+		fputs(s, stderr);
+		*status = 1;
+	}
+}
+
+int main(int argc, char *argv[]) {
+	static const char env_doit[] = "NARG_TEST_CHILD_DOIT";
+	static const int EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR = 2;
+	if (argc != 1 || getenv(env_doit)) {
+		const struct narg_optspec optv[] = {
+			{"h","help",NULL,"Show help text"},
+			{"ø̧̇","one","=ARG","Option that takes 1 parameter"},
+			{"t","two"," ARG1 ARG2","Option that takes 2 parameters"},
+			{NULL,"just-a-very-long-option"," ARG1 ARG2 ARG3 ARG4","Oh well"},
+			{NULL,"",&narg_metavar.ignore_rest,"Don\'t interpret further arguments as options"}
+		};
+		struct narg_paramret retv[ARRAY_SIZE(optv)] = {
+			{0, NULL},
+			{3, (const char*[]){"these","by","default"}},
+			{2, (const char*[]){"default","values"}},
+			{0, NULL},
+			{0, NULL}
+		};
+		unsigned width = narg_terminalwidth(stdout);
+		narg_printopt_unlocked(stdout, optv, retv, ARRAY_SIZE(optv), 2, width);
+		return EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR;
+	} else {
+		int status;
+
+		if (0 != setenv(env_doit, "", 0)) {
+			perror("setenv");
+			return EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR;
+		}
+		FILE *self_rd_fp = popen(argv[0], "r");
+		if (self_rd_fp == NULL) {
+			perror("popen");
+			return EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR;
+		}
+		static const char expect[] =
+			"-h --help                                         Show help text\n"
+			"-ø̧̇ --one=ARG                                      Option that takes 1 parameter\n"
+			"                                                  [these by default]\n"
+			"-t --two ARG1 ARG2                                Option that takes 2 parameters\n"
+			"                                                  [default values]\n"
+			"   --just-a-very-long-option ARG1 ARG2 ARG3 ARG4  Oh well\n"
+			"   --                                             Don\'t interpret further\n"
+			"                                                  arguments as options\n"
+		;
+		expect_fp(&status, self_rd_fp, expect);
+		pclose(self_rd_fp);
+		return status;
+	}
+}
+
+#endif //TEST

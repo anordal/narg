@@ -1,8 +1,8 @@
-#include "utf8len.h"
+#include "narg.h"
 #ifndef TEST
 #include <stddef.h> //ptrdiff_t
 
-int_fast8_t utf8len(const char *first){
+int_fast8_t narg_utf8len(const char *first){
 	uint8_t leadbits=0;
 	while(*first & ((uint8_t)'\x80' >> leadbits)) leadbits++;
 	if(leadbits <= 1){
@@ -113,7 +113,7 @@ int main(){
 
 	int status=0;
 	for(unsigned i=0; cases[i].input; ++i){
-		int actual = utf8len(cases[i].input);
+		int actual = narg_utf8len(cases[i].input);
 		compare_expr_i(&status, cases[i].input, actual, cases[i].expected);
 	}
 	return status;

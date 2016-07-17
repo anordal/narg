@@ -11,5 +11,5 @@ void compare_expr_i(int *status, const char *expr, signed actual, signed expecte
 
 void compare_slices(int *status, const char **a, const char **b, unsigned len);
 
-struct narg_paramret;
-void expect_paramret(int *status, const struct narg_paramret *actual, unsigned expectedlen, const char **expected);
+struct narg_optparam;
+void expect_optparam(int *status, const struct narg_optparam *actual, unsigned expectedlen, const char **expected);

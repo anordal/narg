@@ -1,3 +1,8 @@
+// This Source Code Form is subject to the terms
+// of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 #ifndef TEST
 #define _DEFAULT_SOURCE //unlocked stdio, fileno
 #include "narg.h"
@@ -8,21 +13,21 @@
 #endif
 #include <string.h> //strlen
 #include <ctype.h>  //isspace
-unsigned narg_terminalwidth(FILE *fp){
+unsigned narg_terminalwidth(FILE *fp) {
 	unsigned width = 80;
 #ifdef __linux__
 	int fd = fileno(fp);
 	struct winsize w;
-	if(0 == ioctl(fd, TIOCGWINSZ, &w)) width = w.ws_col;
+	if (0 == ioctl(fd, TIOCGWINSZ, &w)) width = w.ws_col;
 #endif
 	return width;
 }
 
-typedef struct{
+typedef struct {
 	unsigned x1, x2;
 } pair_t;
 
-static pair_t findbreakpoint(const char *line, unsigned width){
+static pair_t findbreakpoint(const char *line, unsigned width) {
 	pair_t pos={0, 0}, breakpoint={~0, ~0};
 	for (;;) {
 		const int charlen = narg_utf8len(line + pos.x1);
@@ -31,7 +36,9 @@ static pair_t findbreakpoint(const char *line, unsigned width){
 		} else if (line[pos.x1] == ' ') {
 			breakpoint = pos;
 		}
-		if (pos.x2 == width) break;
+		if (pos.x2 == width) {
+			break;
+		}
 		pos.x1 += charlen;
 		pos.x2 += 1;
 	}
@@ -43,13 +50,17 @@ void narg_indentputs_unlocked(
 	unsigned indent, unsigned width, const char *str
 ){
 	unsigned pos = *posPtr;
-	for(;;){ //line by line
-		for(; pos < indent; pos++) putchar_unlocked(' ');
+	for (;;) { //line by line
+		for (; pos < indent; pos++) {
+			putchar_unlocked(' ');
+		}
 		pair_t breakpoint = findbreakpoint(str, width - pos);
 		fwrite_unlocked(str, 1, breakpoint.x1, fp);
 		str += breakpoint.x1;
 		pos += breakpoint.x2;
-		if(*str == '\0') break;
+		if (*str == '\0') {
+			break;
+		}
 		putchar_unlocked('\n');
 		str++;
 		pos = 0;
@@ -57,7 +68,7 @@ void narg_indentputs_unlocked(
 	*posPtr = pos;
 }
 
-static pair_t utf8strlen(const char *str){
+static pair_t utf8strlen(const char *str) {
 	pair_t ret = {0, 0};
 	int charlen;
 	while ((charlen=narg_utf8len(str + ret.x1)) > 0) {
@@ -67,13 +78,13 @@ static pair_t utf8strlen(const char *str){
 	return ret;
 }
 
-static pair_t nullutf8strlen(const char *s){
+static pair_t nullutf8strlen(const char *s) {
 	if(s) return utf8strlen(s);
 	pair_t niks = {0};
 	return niks;
 }
 
-static pair_t utf8strcpy(char *restrict dst, const char *restrict src){
+static pair_t utf8strcpy(char *restrict dst, const char *restrict src) {
 	pair_t ret = {0, 0};
 	for (unsigned i=0; ; i++) {
 		if (ret.x1 == i) {
@@ -89,19 +100,19 @@ static pair_t utf8strcpy(char *restrict dst, const char *restrict src){
 	return ret;
 }
 
-static pair_t pairmax(pair_t a, pair_t b){
+static pair_t pairmax(pair_t a, pair_t b) {
 	if(a.x1 < b.x1) a.x1 = b.x1;
 	if(a.x2 < b.x2) a.x2 = b.x2;
 	return a;
 }
 
-static pair_t pairaddscalar(pair_t a, unsigned b){
+static pair_t pairaddscalar(pair_t a, unsigned b) {
 	a.x1 += b;
 	a.x2 += b;
 	return a;
 }
 
-static pair_t pairaddpair(pair_t a, pair_t b){
+static pair_t pairaddpair(pair_t a, pair_t b) {
 	a.x1 += b.x1;
 	a.x2 += b.x2;
 	return a;
@@ -109,11 +120,13 @@ static pair_t pairaddpair(pair_t a, pair_t b){
 
 void narg_printopt_unlocked(
 	FILE *fp,
+	unsigned width,
 	const struct narg_optspec *optv,
-	const struct narg_paramret *retv,
+	const struct narg_optparam *ansv,
 	unsigned optc,
-	unsigned dashes_longopt,
-	unsigned width
+	narg_dgettext_lookalike_f i18n_translator,
+	const char *i18n_domain,
+	unsigned dashes_longopt
 ){
 	const unsigned dashes_shortopt = (dashes_longopt > 1)
 		? dashes_longopt - 1
@@ -122,23 +135,23 @@ void narg_printopt_unlocked(
 
 	pair_t shortlen={0}, longlen={0};
 	unsigned o;
-	for(o=0; o < optc; o++){
+	for (o=0; o < optc; o++) {
 		shortlen = pairmax(shortlen, nullutf8strlen(optv[o].shortopt));
 		longlen = pairmax(longlen, pairaddpair(nullutf8strlen(optv[o].longopt), nullutf8strlen(optv[o].metavar)));
 	}
-	if(shortlen.x2) shortlen = pairaddscalar(shortlen, dashes_shortopt);
-	if(shortlen.x2 && longlen.x2) shortlen = pairaddscalar(shortlen, 1);
-	if(longlen.x2) longlen = pairaddscalar(longlen, dashes_longopt);
+	if (shortlen.x2) shortlen = pairaddscalar(shortlen, dashes_shortopt);
+	if (shortlen.x2 && longlen.x2) shortlen = pairaddscalar(shortlen, 1);
+	if (longlen.x2) longlen = pairaddscalar(longlen, dashes_longopt);
 	longlen = pairaddscalar(longlen, 2); //2 spaces before help
 
 	pair_t prelen = pairaddpair(shortlen, longlen);
 	unsigned indent = prelen.x2 % width;
 	char preprint[prelen.x1]; //unterminated
 	
-	for(o=0; o < optc; o++){
+	for (o=0; o < optc; o++) {
 		pair_t wpos = {0};
 
-		if(optv[o].shortopt){
+		if (optv[o].shortopt) {
 			memset(preprint + wpos.x1, '-', dashes_shortopt);
 			wpos = pairaddscalar(wpos, dashes_shortopt);
 			wpos = pairaddpair(wpos, utf8strcpy(preprint + wpos.x1, optv[o].shortopt));
@@ -146,15 +159,15 @@ void narg_printopt_unlocked(
 		memset(preprint + wpos.x1, ' ', shortlen.x2 - wpos.x2);
 		wpos = pairaddscalar(wpos, shortlen.x2 - wpos.x2);
 
-		if(optv[o].longopt){
+		if (optv[o].longopt) {
 			memset(preprint + wpos.x1, '-', dashes_longopt);
 			wpos = pairaddscalar(wpos, dashes_longopt);
 			wpos = pairaddpair(wpos, utf8strcpy(preprint + wpos.x1, optv[o].longopt));
-		}else{
+		} else {
 			memset(preprint + wpos.x1, ' ', dashes_longopt);
 			wpos = pairaddscalar(wpos, dashes_longopt);
 		}
-		if(optv[o].metavar){
+		if (optv[o].metavar) {
 			wpos = pairaddpair(wpos, utf8strcpy(preprint + wpos.x1, optv[o].metavar));
 		}
 		memset(preprint + wpos.x1, ' ', prelen.x2 - wpos.x2);
@@ -163,17 +176,22 @@ void narg_printopt_unlocked(
 		fwrite_unlocked(preprint, 1, wpos.x1, fp);
 		wpos.x2 %= width;
 		
-		if(optv[o].help) narg_indentputs_unlocked(fp, &wpos.x2, indent, width, optv[o].help);
-		if(retv[o].paramc){
+		if (optv[o].help) {
+			const char *help_translated = i18n_translator(i18n_domain, optv[o].help);
+			narg_indentputs_unlocked(fp, &wpos.x2, indent, width, help_translated);
+		}
+		if (ansv[o].paramc) {
 			char buf[100];
 			char *const end = buf + sizeof(buf);
 			char *pos = stpcpy(buf, " [");
-			for(unsigned a=0; ;){
-				pos = stpncpy(pos, retv[o].paramv[a++], end-pos);
-				if(a == retv[o].paramc || end-pos < 2) break;
+			for (unsigned a=0; ;) {
+				pos = stpncpy(pos, ansv[o].paramv[a++], end-pos);
+				if (a == ansv[o].paramc || end-pos < 2) {
+					break;
+				}
 				*pos++ = ' ';
 			}
-			if(end-pos < 2){
+			if (end-pos < 2) {
 				pos = stpcpy(end-2-strlen("…"), "…");
 			}
 			stpcpy(pos, "]");
@@ -190,7 +208,7 @@ void narg_printopt_unlocked(
 #include "../testapi/testability.h"
 #include <stdlib.h> //getenv, setenv
 
-static void expect_fp(int *status, FILE *fp, const char *expected){
+static void expect_fp(int *status, FILE *fp, const char *expected) {
 	const char *s = expected;
 	char fc, sc;
 	do {
@@ -206,6 +224,13 @@ static void expect_fp(int *status, FILE *fp, const char *expected){
 	}
 }
 
+static char *fake_dgettext(const char *dontcare, const char *s) {
+	//make use of dontcare, hoping it is NULL, to please the compiler
+	if (dontcare) s = dontcare;
+
+	return (char*)s;
+}
+
 int main(int argc, char *argv[]) {
 	static const char env_doit[] = "NARG_TEST_CHILD_DOIT";
 	static const int EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR = 2;
@@ -217,7 +242,7 @@ int main(int argc, char *argv[]) {
 			{NULL,"just-a-very-long-option"," ARG1 ARG2 ARG3 ARG4","Oh well"},
 			{NULL,"",&narg_metavar.ignore_rest,"Don\'t interpret further arguments as options"}
 		};
-		struct narg_paramret retv[ARRAY_SIZE(optv)] = {
+		struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
 			{0, NULL},
 			{3, (const char*[]){"these","by","default"}},
 			{2, (const char*[]){"default","values"}},
@@ -225,10 +250,10 @@ int main(int argc, char *argv[]) {
 			{0, NULL}
 		};
 		unsigned width = narg_terminalwidth(stdout);
-		narg_printopt_unlocked(stdout, optv, retv, ARRAY_SIZE(optv), 2, width);
+		narg_printopt_unlocked(stdout, width, optv, ansv, ARRAY_SIZE(optv), fake_dgettext, NULL, 2);
 		return EXIT_NOT_THE_RETURN_VALUE_YOU_ARE_LOOKING_FOR;
 	} else {
-		int status;
+		int status = 0;
 
 		if (0 != setenv(env_doit, "", 0)) {
 			perror("setenv");

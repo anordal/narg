@@ -1,7 +1,8 @@
 project('narg', 'c', default_options : 'c_std=c99', license : 'MPL 2.0')
+add_global_arguments('-Wno-self-assign', language: 'c')
 
 narg_sources = [
-	'api/argparse.c',
+	'api/findopt.c',
 	'api/printopt.c',
 	'api/utf8len.c',
 ]

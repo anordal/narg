@@ -1,29 +1,30 @@
+// This Source Code Form is subject to the terms
+// of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
-static unsigned leadingchars(const char *s, char c)
-{
+static unsigned leadingchars(const char *s, char c) {
 	unsigned i = 0;
 	while (s[i] == c) i++;
 	return i;
 }
 
-static unsigned strlen_delim(const char *s, char delim)
-{
+static unsigned strlen_delim(const char *s, char delim) {
 	unsigned i = 0;
 	while (s[i] && s[i] != delim) ++i;
 	return i;
 }
 
-static unsigned longest_common_prefix(const char *a, const char *b)
-{
+static unsigned longest_common_prefix(const char *a, const char *b) {
 	unsigned i = 0;
 	while (a[i] && a[i] == b[i]) ++i;
 	return i;
 }
 
-static _Bool has_prefix_of_len(const char *has, const char *candidate, unsigned expectedlen)
-{
-	if (!candidate) return 0;
-
+static _Bool has_prefix_of_len(const char *has, const char *candidate, unsigned expectedlen) {
+	if (!candidate) {
+		return 0;
+	}
 	const unsigned pivot = longest_common_prefix(has, candidate);
 	return (candidate[pivot] == '\0' && pivot == expectedlen);
 }
@@ -32,8 +33,7 @@ static _Bool has_prefix_of_len(const char *has, const char *candidate, unsigned 
 #include <stdbool.h>
 #include "../testapi/testability.h"
 
-int main()
-{
+int main() {
 	int status = 0;
 	expect_u(&status, leadingchars("", '-'), 0);
 	expect_u(&status, leadingchars("a", '-'), 0);

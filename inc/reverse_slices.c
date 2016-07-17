@@ -1,6 +1,9 @@
+// This Source Code Form is subject to the terms
+// of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
-static void swap_partitions(const char **a, const char **b, unsigned len)
-{
+static void swap_partitions(const char **a, const char **b, unsigned len) {
 	while (len--) {
 		const char *tmp = a[len];
 		a[len] = b[len];
@@ -8,11 +11,12 @@ static void swap_partitions(const char **a, const char **b, unsigned len)
 	}
 }
 
-static void reverse_slices(const char **base, unsigned pivot, unsigned len)
-{
+static void reverse_slices(const char **base, unsigned pivot, unsigned len) {
 	for (;;) {
 		unsigned len_shortest = (pivot < len-pivot) ? pivot : len-pivot;
-		if (len_shortest == 0) break;
+		if (len_shortest == 0) {
+			break;
+		}
 		swap_partitions(base, base+pivot, len_shortest);
 		if (pivot != len_shortest) {
 			pivot -= len_shortest;

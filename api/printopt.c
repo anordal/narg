@@ -52,7 +52,7 @@ void narg_indentputs_unlocked(
 	unsigned pos = *posPtr;
 	for (;;) { //line by line
 		for (; pos < indent; pos++) {
-			putchar_unlocked(' ');
+			putc_unlocked(' ', fp);
 		}
 		pair_t breakpoint = findbreakpoint(str, width - pos);
 		fwrite_unlocked(str, 1, breakpoint.x1, fp);
@@ -61,7 +61,7 @@ void narg_indentputs_unlocked(
 		if (*str == '\0') {
 			break;
 		}
-		putchar_unlocked('\n');
+		putc_unlocked('\n', fp);
 		str++;
 		pos = 0;
 	}
@@ -197,7 +197,7 @@ void narg_printopt_unlocked(
 			stpcpy(pos, "]");
 			narg_indentputs_unlocked(fp, &wpos.x2, indent, width, buf);
 		}
-		putchar_unlocked('\n');
+		putc_unlocked('\n', fp);
 	}
 }
 

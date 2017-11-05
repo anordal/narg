@@ -9,7 +9,7 @@ narg_sources = [
 	'api/utf8len.c',
 ]
 
-version = '0.3.0'
+version = '1.0.0'
 narg = library('narg', sources : narg_sources, install : true, version : version)
 
 unittests = narg_sources + [

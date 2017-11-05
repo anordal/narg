@@ -3,14 +3,13 @@ project('narg', 'c',
 	license : 'MPL 2.0'
 )
 
+version = '1.0.0'
+
 narg_sources = [
 	'api/findopt.c',
 	'api/printopt.c',
 	'api/utf8len.c',
 ]
-
-version = '1.0.0'
-narg = library('narg', sources : narg_sources, install : true, version : version)
 
 unittests = narg_sources + [
 	'inc/assign_params.c',
@@ -19,6 +18,25 @@ unittests = narg_sources + [
 	'inc/wordcount.c',
 	'testapi/testability.c',
 ]
+
+if meson.is_subproject()
+	narg = static_library('narg', sources : narg_sources)
+	narg_dep = declare_dependency(
+		link_with: narg,
+		include_directories: include_directories('api')
+	)
+else
+	narg = library('narg', sources : narg_sources, install : true, version : version)
+	install_headers('api/narg.h')
+	pkg_mod = import('pkgconfig')
+	pkg_mod.generate(
+		libraries : narg,
+		version : version,
+		name : 'libnarg',
+		filebase : 'narg',
+		description : 'A commandline option parser library.'
+	)
+endif
 
 testapi = static_library('testability', sources : ['testapi/testability.c'])
 
@@ -32,18 +50,3 @@ foreach u : unittests
 	exe = executable(name, u, c_args : '-DTEST', link_with : libs)
 	test(name, exe)
 endforeach
-
-install_headers('api/narg.h')
-pkg_mod = import('pkgconfig')
-pkg_mod.generate(
-	libraries : narg,
-	version : version,
-	name : 'libnarg',
-	filebase : 'narg',
-	description : 'A commandline option parser library.'
-)
-
-narg_dep = declare_dependency(
-	link_with: narg,
-	include_directories: include_directories('api')
-)

@@ -19,7 +19,8 @@ void compare_expr_i(int *status, const char *expr, signed actual, signed expecte
 	}
 }
 
-static size_t fputs_unlocked(const char *s, FILE *fp) {
+// Portability: Reimplement fputs_unlocked to not require _GNU_SOURCE
+static size_t narg_fputs_unlocked(const char *s, FILE *fp) {
 	return fwrite_unlocked(s, 1, strlen(s), fp);
 }
 
@@ -27,7 +28,7 @@ static size_t fputs_unlocked(const char *s, FILE *fp) {
 static void slice_fprint_unlocked(FILE *fp, const char **slice, unsigned len) {
 	fputc_unlocked('{', fp);
 	for (;;) {
-		fputs_unlocked(*slice++, fp);
+		narg_fputs_unlocked(*slice++, fp);
 		if (--len == 0) {
 			break;
 		}
@@ -51,7 +52,7 @@ void compare_slices(int *status, const char **a, const char **b, unsigned len) {
 	if (0 != slicecmp(a, b, len)) {
 		flockfile(stderr);
 		slice_fprint_unlocked(stderr, a, len);
-		fputs_unlocked(" != ", stderr);
+		narg_fputs_unlocked(" != ", stderr);
 		slice_fprint_unlocked(stderr, b, len);
 		fputc_unlocked('\n', stderr);
 		funlockfile(stderr);

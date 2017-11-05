@@ -42,3 +42,8 @@ pkg_mod.generate(
 	filebase : 'narg',
 	description : 'A commandline option parser library.'
 )
+
+narg_dep = declare_dependency(
+	link_with: narg,
+	include_directories: include_directories('api')
+)

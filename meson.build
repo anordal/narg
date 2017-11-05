@@ -1,5 +1,7 @@
-project('narg', 'c', default_options : 'c_std=c99', license : 'MPL 2.0')
-add_global_arguments('-Wno-self-assign', language: 'c')
+project('narg', 'c',
+	default_options : ['c_std=c99', 'warning_level=3'],
+	license : 'MPL 2.0'
+)
 
 narg_sources = [
 	'api/findopt.c',

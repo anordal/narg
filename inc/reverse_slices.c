@@ -28,6 +28,7 @@ static void reverse_slices(const char **base, unsigned pivot, unsigned len) {
 
 #ifdef TEST
 #include "../testapi/testability.h"
+#include <stddef.h>
 
 static void test_reverse_slices(int *status, const char **base, unsigned pivot, unsigned len, const char **expect)
 {
@@ -37,7 +38,7 @@ static void test_reverse_slices(int *status, const char **base, unsigned pivot, 
 
 int main() {
 	int status = 0;
-	test_reverse_slices(&status, (const char *[]){0}, 0, 0, (const char *[]){0});
+	test_reverse_slices(&status, NULL, 0, 0, NULL);
 	test_reverse_slices(&status, (const char *[]){"x"}, 0, 1, (const char *[]){"x"});
 	test_reverse_slices(&status, (const char *[]){"x"}, 1, 1, (const char *[]){"x"});
 	test_reverse_slices(&status, (const char *[]){"a","b"}, 0, 2, (const char *[]){"a","b"});

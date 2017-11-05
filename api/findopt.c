@@ -33,7 +33,7 @@ struct narg_result narg_findopt(
 		: dashes_longopt
 	;
 
-	struct narg_optparam posargs = {0}; // positional (non-optional) arguments
+	struct narg_optparam posargs = {0, NULL}; // positional (non-optional) arguments
 	for (unsigned a=1; ; ++a) {
 		const char *arg = args[a];
 
@@ -144,7 +144,11 @@ static void ignore_rest(int *status) {
 		{"o","output","OUTFILE","Set output file"},
 		{NULL,"",&narg_metavar.ignore_rest,"Treat subsequent arguments as positional"}
 	};
-	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {0};
+	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
+		{0, NULL},
+		{0, NULL},
+		{0, NULL}
+	};
 	const char *argv[] = {
 		NULL,
 		"-o",
@@ -157,7 +161,7 @@ static void ignore_rest(int *status) {
 	struct narg_result res = narg_findopt((char**)argv, optv, ansv, ARRAY_SIZE(optv), ~0, 2);
 	expect_i(status, res.err, 0);
 	expect_i(status, res.arg, 4);
-	expect_optparam(status, ansv+0, 0, (const char *[]){0});
+	expect_optparam(status, ansv+0, 0, NULL);
 	expect_optparam(status, ansv+1, 1, (const char *[]){"--help"});
 	expect_optparam(status, ansv+2, 1, (const char *[]){"--"});
 	compare_slices(status, argv+res.arg, (const char*[]){"pos1","--help"}, 2);
@@ -169,7 +173,11 @@ static void max_positional(int *status) {
 		{"b",NULL,NULL,""},
 		{"c",NULL,NULL,""}
 	};
-	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {0};
+	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
+		{0, NULL},
+		{0, NULL},
+		{0, NULL}
+	};
 	const char *argv[] = {
 		NULL,
 		"-a",
@@ -186,7 +194,7 @@ static void max_positional(int *status) {
 	expect_i(status, res.arg, 5);
 	expect_optparam(status, ansv+0, 2, (const char *[]){"p","p2"});
 	expect_optparam(status, ansv+1, 1, (const char *[]){"-b"});
-	expect_optparam(status, ansv+2, 0, (const char *[]){0});
+	expect_optparam(status, ansv+2, 0, NULL);
 	compare_slices(status, argv+res.arg, (const char*[]){"A","B","-c"}, 3);
 }
 
@@ -196,7 +204,11 @@ static void flagorgy(int *status) {
 		{"ø̧̇","scalar"," VAL",""},
 		{"å","pair"," VAL1 VAL2",""}
 	};
-	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {0};
+	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
+		{0, NULL},
+		{0, NULL},
+		{0, NULL}
+	};
 	const char *argv[] = {
 		NULL,
 		"-æø̧̇å",
@@ -207,7 +219,7 @@ static void flagorgy(int *status) {
 	expect_i(status, res.arg, 2);
 	expect_optparam(status, ansv+0, 1, (const char *[]){"å"});
 	expect_optparam(status, ansv+1, 1, (const char *[]){"å"});
-	expect_optparam(status, ansv+2, 0, (const char *[]){0});
+	expect_optparam(status, ansv+2, 0, NULL);
 }
 
 static void dashes0(int *status) {
@@ -218,7 +230,13 @@ static void dashes0(int *status) {
 		{"if",NULL,"=IN",""},
 		{NULL,"of","=OUT",""}
 	};
-	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {0};
+	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
+		{0, NULL},
+		{0, NULL},
+		{0, NULL},
+		{0, NULL},
+		{0, NULL}
+	};
 	const char *argv[] = {
 		NULL,
 		"if=/dev/zero",
@@ -246,7 +264,11 @@ static void fail(int *status) {
 		{"o","output","OUTFILE","Set output file"},
 		{NULL,"",&narg_metavar.ignore_rest,"Treat subsequent arguments as positional"}
 	};
-	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {0};
+	struct narg_optparam ansv[ARRAY_SIZE(optv)] = {
+		{0, NULL},
+		{0, NULL},
+		{0, NULL}
+	};
 	struct narg_result res;
 
 	const char *argv_enosuch[] = {

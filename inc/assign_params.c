@@ -66,7 +66,7 @@ static void nothing_vs_default(int *status) {
 		{0, NULL},
 		{2, (const char*[]){"Kaptein","Sabeltann"}}
 	};
-	struct narg_optparam posargs = {0};
+	struct narg_optparam posargs = {0, NULL};
 	expect_optparam(status, ansv+0, 0, NULL);
 	expect_optparam(status, ansv+1, 2, (const char*[]){"Kaptein","Sabeltann"});
 
@@ -110,7 +110,7 @@ static void append_opt_x_param(int *status) {
 	struct narg_optparam ansv[] = {
 		{0, NULL}
 	};
-	struct narg_optparam posargs = {0};
+	struct narg_optparam posargs = {0, NULL};
 	expect_optparam(status, ansv+0, 0, NULL);
 
 	assign_params(ansv+0, argv+0, 0, 0, &posargs, ansv, ARRAY_SIZE(ansv), argv);
@@ -148,7 +148,7 @@ static void reorder_noopt(int *status) {
 		{0, NULL},
 		{0, NULL}
 	};
-	struct narg_optparam posargs = {0};
+	struct narg_optparam posargs = {0, NULL};
 	assign_params(ansv+0, argv+0, 2, 0, &posargs, ansv, ARRAY_SIZE(ansv), argv);
 	assign_params(ansv+1, argv+2, 2, 0, &posargs, ansv, ARRAY_SIZE(ansv), argv);
 	assign_params(ansv+0, argv+4, 2, 0, &posargs, ansv, ARRAY_SIZE(ansv), argv);
@@ -178,7 +178,7 @@ static void reorder_yesopt(int *status) {
 		{0, NULL},
 		{0, NULL}
 	};
-	struct narg_optparam posargs = {0};
+	struct narg_optparam posargs = {0, NULL};
 	assign_params(ansv+0, argv+1, 2, 1, &posargs, ansv, ARRAY_SIZE(ansv), argv);
 	assign_params(ansv+1, argv+4, 2, 1, &posargs, ansv, ARRAY_SIZE(ansv), argv);
 	assign_params(ansv+0, argv+7, 2, 1, &posargs, ansv, ARRAY_SIZE(ansv), argv);

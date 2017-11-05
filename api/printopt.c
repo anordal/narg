@@ -80,7 +80,7 @@ static pair_t utf8strlen(const char *str) {
 
 static pair_t nullutf8strlen(const char *s) {
 	if(s) return utf8strlen(s);
-	pair_t niks = {0};
+	pair_t niks = {0, 0};
 	return niks;
 }
 
@@ -133,7 +133,7 @@ void narg_printopt_unlocked(
 		: dashes_longopt
 	;
 
-	pair_t shortlen={0}, longlen={0};
+	pair_t shortlen={0, 0}, longlen={0, 0};
 	unsigned o;
 	for (o=0; o < optc; o++) {
 		shortlen = pairmax(shortlen, nullutf8strlen(optv[o].shortopt));
@@ -149,7 +149,7 @@ void narg_printopt_unlocked(
 	char preprint[prelen.x1]; //unterminated
 	
 	for (o=0; o < optc; o++) {
-		pair_t wpos = {0};
+		pair_t wpos = {0, 0};
 
 		if (optv[o].shortopt) {
 			memset(preprint + wpos.x1, '-', dashes_shortopt);
@@ -224,10 +224,8 @@ static void expect_fp(int *status, FILE *fp, const char *expected) {
 	}
 }
 
-static char *fake_dgettext(const char *dontcare, const char *s) {
-	//make use of dontcare, hoping it is NULL, to please the compiler
-	if (dontcare) s = dontcare;
-
+static char *fake_dgettext(const char *unused, const char *s) {
+	(void)unused; // please the compiler
 	return (char*)s;
 }
 

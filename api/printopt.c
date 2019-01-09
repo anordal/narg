@@ -7,15 +7,26 @@
 #define _DEFAULT_SOURCE //unlocked stdio, fileno
 #include "narg.h"
 
-#ifdef __linux__
+#include <string.h> //strlen
+#include <ctype.h>  //isspace
+
+#ifdef _WIN32
+# include <windows.h> // GetConsoleScreenBufferInfo
+# include <io.h>      // _get_osfhandle
+#else
 # include <sys/ioctl.h>
 # include <unistd.h>
 #endif
-#include <string.h> //strlen
-#include <ctype.h>  //isspace
+
 unsigned narg_terminalwidth(FILE *fp) {
 	unsigned width = 80;
-#ifdef __linux__
+#ifdef _WIN32
+	HANDLE h = (HANDLE)_get_osfhandle(_fileno(fp));
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (GetConsoleScreenBufferInfo(h, &csbi)) {
+		width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	}
+#else
 	int fd = fileno(fp);
 	struct winsize w;
 	if (0 == ioctl(fd, TIOCGWINSZ, &w)) width = w.ws_col;

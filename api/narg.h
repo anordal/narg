@@ -2,9 +2,6 @@
 #define NARG_H
 #include <stdint.h>
 #include <stdio.h>
-#ifndef __cplusplus
-# include <stdbool.h>
-#endif
 
 struct narg_optspec {
 	const char *shortopt; // UTF-8
